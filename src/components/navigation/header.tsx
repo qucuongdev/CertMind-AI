@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Sparkles,
   LayoutDashboard,
+  Briefcase,
   Menu,
   X
 } from "lucide-react";
@@ -26,6 +27,7 @@ export function Header() {
     { href: "/knowledge", label: tNav("knowledge"), icon: BookOpen },
     { href: "/learn", label: tNav("learn"), icon: GraduationCap },
     { href: "/practice", label: tNav("practice"), icon: Sparkles },
+    { href: "/interview", label: tNav("interview"), icon: Briefcase },
     { href: "/dashboard", label: tNav("dashboard"), icon: LayoutDashboard },
   ];
 
