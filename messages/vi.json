@@ -1,0 +1,49 @@
+{
+  "common": {
+    "appName": "CertMind AI",
+    "tagline": "Học AI. Luyện thi thông minh. Chinh phục chứng chỉ.",
+    "getStarted": "Bắt đầu ngay",
+    "exploreCertifications": "Khám phá chứng chỉ",
+    "startPractice": "Luyện tập ngay",
+    "viewCatalog": "Xem danh mục",
+    "searchPlaceholder": "Tìm kiếm chứng chỉ, chủ đề, câu hỏi...",
+    "theme": {
+      "light": "Sáng",
+      "dark": "Tối",
+      "system": "Hệ thống"
+    },
+    "language": {
+      "en": "English",
+      "vi": "Tiếng Việt"
+    }
+  },
+  "nav": {
+    "certifications": "Chứng chỉ",
+    "knowledge": "Thư viện kiến thức",
+    "learn": "Lộ trình học",
+    "practice": "Luyện tập",
+    "exams": "Thi thử",
+    "dashboard": "Bảng điều khiển"
+  },
+  "home": {
+    "heroTitle": "Chinh phục chứng chỉ AI hàng đầu thế giới",
+    "heroSubtitle": "Lộ trình học bài bản, phòng thi mô phỏng thực tế và ngân hàng câu hỏi chuẩn hóa cho Claude, AWS, Azure, Google Cloud và nhiều hơn nữa.",
+    "browseCatalog": "Khám phá danh mục chứng chỉ",
+    "trySimulator": "Thi thử miễn phí",
+    "featuresTitle": "Vì sao chọn CertMind AI?",
+    "features": {
+      "verified": {
+        "title": "Mục tiêu thi chuẩn xác",
+        "desc": "Bám sát đề cương chính thức của các hãng và liên tục cập nhật."
+      },
+      "reusable": {
+        "title": "Kiến thức AI dùng chung",
+        "desc": "Nắm vững các khái niệm cốt lõi như RAG, Prompt Engineering và Agents cho mọi chứng chỉ."
+      },
+      "simulator": {
+        "title": "Mô phỏng thi thực tế",
+        "desc": "Thi bấm giờ, chấm điểm theo domain và giải thích chi tiết từng đáp án."
+      }
+    }
+  }
+}

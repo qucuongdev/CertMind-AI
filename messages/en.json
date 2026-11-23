@@ -1,0 +1,49 @@
+{
+  "common": {
+    "appName": "CertMind AI",
+    "tagline": "Learn AI. Practice Smarter. Get Certified.",
+    "getStarted": "Get Started",
+    "exploreCertifications": "Explore Certifications",
+    "startPractice": "Start Practice",
+    "viewCatalog": "View Catalog",
+    "searchPlaceholder": "Search certifications, topics, questions...",
+    "theme": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "language": {
+      "en": "English",
+      "vi": "Tiếng Việt"
+    }
+  },
+  "nav": {
+    "certifications": "Certifications",
+    "knowledge": "Knowledge Library",
+    "learn": "Learning Paths",
+    "practice": "Practice Engine",
+    "exams": "Exam Simulator",
+    "dashboard": "Dashboard"
+  },
+  "home": {
+    "heroTitle": "Master AI Certifications with Confidence",
+    "heroSubtitle": "Structured learning paths, realistic exam simulators, and verified question banks for Claude, AWS, Azure, Google Cloud, and more.",
+    "browseCatalog": "Explore AI Certifications",
+    "trySimulator": "Try Free Exam Simulator",
+    "featuresTitle": "Why CertMind AI?",
+    "features": {
+      "verified": {
+        "title": "Verified Exam Guides",
+        "desc": "Aligned with official objectives and continually updated."
+      },
+      "reusable": {
+        "title": "Shared AI Knowledge",
+        "desc": "Learn core concepts like RAG and Prompt Engineering once across providers."
+      },
+      "simulator": {
+        "title": "Realistic Simulator",
+        "desc": "Timed practice exams with granular domain scoring and deep explanations."
+      }
+    }
+  }
+}
