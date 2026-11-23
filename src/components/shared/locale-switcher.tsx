@@ -13,6 +13,9 @@ export function LocaleSwitcher() {
 
   const toggleLocale = () => {
     const nextLocale = locale === "en" ? "vi" : "en";
+    if (typeof document !== "undefined") {
+      document.cookie = `NEXT_LOCALE=${nextLocale}; path=/; max-age=31536000; SameSite=Lax`;
+    }
     router.replace(pathname, { locale: nextLocale });
   };
 

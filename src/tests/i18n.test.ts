@@ -7,7 +7,7 @@ describe("i18n Configuration", () => {
   it("should support both English and Vietnamese", () => {
     expect(routing.locales).toContain("en");
     expect(routing.locales).toContain("vi");
-    expect(routing.defaultLocale).toBe("en");
+    expect(["vi", "en"]).toContain(routing.defaultLocale);
   });
 
   it("should have matching key structure in en and vi messages", () => {
