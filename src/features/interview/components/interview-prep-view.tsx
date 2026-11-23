@@ -113,51 +113,68 @@ function emitSeenChange() {
   }
 }
 
-const seenStore = {
-  getSeenIds(): string[] {
-    if (typeof window === "undefined") return [];
-    try {
-      const raw = localStorage.getItem(SEEN_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
+function subscribeSeen(callback: () => void) {
+  seenListeners.push(callback);
+  const handleStorage = (e: StorageEvent) => {
+    if (e.key === SEEN_STORAGE_KEY) {
+      callback();
     }
-  },
-  markSeen(ids: string[]) {
-    if (typeof window === "undefined" || ids.length === 0) return;
-    try {
-      const current = new Set(this.getSeenIds());
-      let changed = false;
-      for (const id of ids) {
-        if (!current.has(id)) {
-          current.add(id);
-          changed = true;
-        }
-      }
-      if (changed) {
-        localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(Array.from(current)));
-        emitSeenChange();
-      }
-    } catch {
-      // ignore quota errors
+  };
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", handleStorage);
+  }
+  return () => {
+    seenListeners = seenListeners.filter((l) => l !== callback);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", handleStorage);
     }
-  },
-  clear() {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.removeItem(SEEN_STORAGE_KEY);
+  };
+}
+
+function getRawSeenSnapshot(): string {
+  if (typeof window === "undefined") return "[]";
+  try {
+    return localStorage.getItem(SEEN_STORAGE_KEY) || "[]";
+  } catch {
+    return "[]";
+  }
+}
+
+const SERVER_SNAPSHOT = "[]";
+function getServerSeenSnapshot(): string {
+  return SERVER_SNAPSHOT;
+}
+
+function markSeenIds(ids: string[]) {
+  if (typeof window === "undefined" || ids.length === 0) return;
+  try {
+    const raw = localStorage.getItem(SEEN_STORAGE_KEY) || "[]";
+    const current = new Set<string>(JSON.parse(raw));
+    let changed = false;
+    for (const id of ids) {
+      if (!current.has(id)) {
+        current.add(id);
+        changed = true;
+      }
+    }
+    if (changed) {
+      localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(Array.from(current)));
       emitSeenChange();
-    } catch {
-      // ignore
     }
-  },
-  subscribe(listener: () => void) {
-    seenListeners.push(listener);
-    return () => {
-      seenListeners = seenListeners.filter((l) => l !== listener);
-    };
-  },
-};
+  } catch {
+    // ignore
+  }
+}
+
+function clearSeenIds() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(SEEN_STORAGE_KEY);
+    emitSeenChange();
+  } catch {
+    // ignore
+  }
+}
 
 export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
   // Main view mode: "screening" | "scenarios"
@@ -167,13 +184,21 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
   const [selectedLevel, setSelectedLevel] = useState<DisplayLevel>("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
-  // Track seen questions from localStorage safely with useSyncExternalStore
-  const seenIds = useSyncExternalStore(
-    seenStore.subscribe,
-    seenStore.getSeenIds,
-    () => []
+  // Track seen questions from localStorage safely with primitive snapshot
+  const rawSeen = useSyncExternalStore(
+    subscribeSeen,
+    getRawSeenSnapshot,
+    getServerSeenSnapshot
   );
-  const seenSet = useMemo(() => new Set(seenIds), [seenIds]);
+
+  const seenSet = useMemo(() => {
+    try {
+      const parsed = JSON.parse(rawSeen);
+      return new Set<string>(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      return new Set<string>();
+    }
+  }, [rawSeen]);
 
   // Never-repeat setting
   const [prioritizeUnseen, setPrioritizeUnseen] = useState<boolean>(true);
@@ -308,7 +333,7 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
     }));
 
     // Record question as answered (never-repeat memory)
-    seenStore.markSeen([currentQ.id]);
+    markSeenIds([currentQ.id]);
   };
 
   const liveStats = useMemo(() => {
@@ -350,7 +375,7 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
 
   const handleResetHistory = () => {
     if (confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử câu hỏi đã luyện để bắt đầu lại từ đầu không?")) {
-      seenStore.clear();
+      clearSeenIds();
     }
   };
 
@@ -385,7 +410,7 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
               title="Xóa danh sách câu đã làm để luyện lại từ đầu"
             >
               <Trash2 className="h-3 w-3" />
-              <span>Xóa lịch sử đã làm ({seenIds.length} câu)</span>
+              <span>Xóa lịch sử đã làm ({seenSet.size} câu)</span>
             </button>
           )}
         </div>
