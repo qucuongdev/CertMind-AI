@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
-import { InterviewQuestion, InterviewCategory } from "@/types/interview";
+import React, { useState, useMemo, useCallback, useSyncExternalStore } from "react";
+import { InterviewQuestion, InterviewCategory, InterviewDifficulty } from "@/types/interview";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,12 @@ import {
   Cpu,
   BrainCircuit,
   Binary,
-  Compass
+  Compass,
+  GraduationCap,
+  Zap,
+  Crown,
+  Trash2,
+  CheckCheck
 } from "lucide-react";
 
 interface InterviewPrepViewProps {
@@ -45,14 +50,133 @@ const CATEGORIES: { id: InterviewCategory | "all"; label: string; icon: React.Co
   { id: "security", label: "Security & Guardrails", icon: ShieldAlert },
 ];
 
-const PRESET_COUNTS = [5, 10, 15];
+export type DisplayLevel = "all" | "junior" | "mid" | "senior";
+
+const DIFFICULTY_LEVELS: {
+  id: DisplayLevel;
+  label: string;
+  badgeLabel: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  colorClass: string;
+  badgeClass: string;
+}[] = [
+  {
+    id: "all",
+    label: "Tất cả cấp độ",
+    badgeLabel: "Mọi cấp bậc",
+    description: "Bộ câu hỏi đa dạng từ nền tảng đến kiến trúc sư phân tán.",
+    icon: Compass,
+    colorClass: "border-primary/40 hover:border-primary text-primary",
+    badgeClass: "bg-primary/10 text-primary border-primary/30",
+  },
+  {
+    id: "junior",
+    label: "Level 1: Junior AI Engineer",
+    badgeLabel: "Fresher / Junior",
+    description: "Cơ bản: Prompting, BPE Tokenization, Cosine vs Dot product, Sampling, SSE streaming.",
+    icon: GraduationCap,
+    colorClass: "border-sky-500/40 hover:border-sky-500 text-sky-600 dark:text-sky-400",
+    badgeClass: "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30",
+  },
+  {
+    id: "mid",
+    label: "Level 2: Mid-Level AI Engineer",
+    badgeLabel: "Kỹ sư Thực chiến",
+    description: "Thực chiến: Hybrid Search, Cross-encoder re-ranking, Semantic Caching, Tool Calling, Rate limits.",
+    icon: Zap,
+    colorClass: "border-indigo-500/40 hover:border-indigo-500 text-indigo-600 dark:text-indigo-400",
+    badgeClass: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
+  },
+  {
+    id: "senior",
+    label: "Level 3: Senior & Staff Architect",
+    badgeLabel: "Senior & Lead",
+    description: "Chuyên sâu: vLLM PagedAttention, LoRA/DPO, FlashAttention-3, Multi-agent swarms, System Design.",
+    icon: Crown,
+    colorClass: "border-purple-500/40 hover:border-purple-500 text-purple-600 dark:text-purple-400",
+    badgeClass: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30",
+  },
+];
+
+const PRESET_COUNTS = [5, 10, 15, 20, 25, 30];
+
+// ==========================================
+// NEVER-REPEAT QUESTION STORE (REACT 19 SAFE)
+// ==========================================
+const SEEN_STORAGE_KEY = "certmind_seen_interview_q_ids";
+
+let seenListeners: (() => void)[] = [];
+function emitSeenChange() {
+  for (const listener of seenListeners) {
+    listener();
+  }
+}
+
+const seenStore = {
+  getSeenIds(): string[] {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = localStorage.getItem(SEEN_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  },
+  markSeen(ids: string[]) {
+    if (typeof window === "undefined" || ids.length === 0) return;
+    try {
+      const current = new Set(this.getSeenIds());
+      let changed = false;
+      for (const id of ids) {
+        if (!current.has(id)) {
+          current.add(id);
+          changed = true;
+        }
+      }
+      if (changed) {
+        localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(Array.from(current)));
+        emitSeenChange();
+      }
+    } catch {
+      // ignore quota errors
+    }
+  },
+  clear() {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.removeItem(SEEN_STORAGE_KEY);
+      emitSeenChange();
+    } catch {
+      // ignore
+    }
+  },
+  subscribe(listener: () => void) {
+    seenListeners.push(listener);
+    return () => {
+      seenListeners = seenListeners.filter((l) => l !== listener);
+    };
+  },
+};
 
 export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
   // Main view mode: "screening" | "scenarios"
   const [activeTab, setActiveTab] = useState<"screening" | "scenarios">("screening");
 
-  // Category filter
+  // Filters: Level and Category
+  const [selectedLevel, setSelectedLevel] = useState<DisplayLevel>("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+
+  // Track seen questions from localStorage safely with useSyncExternalStore
+  const seenIds = useSyncExternalStore(
+    seenStore.subscribe,
+    seenStore.getSeenIds,
+    () => []
+  );
+  const seenSet = useMemo(() => new Set(seenIds), [seenIds]);
+
+  // Never-repeat setting
+  const [prioritizeUnseen, setPrioritizeUnseen] = useState<boolean>(true);
 
   // ==========================================
   // SCREENING QUIZ STATE
@@ -70,30 +194,55 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [quizStartTime, setQuizStartTime] = useState<number>(0);
 
+  // Filter helper matching difficulty level
+  const matchesLevel = useCallback((qDifficulty: InterviewDifficulty, level: DisplayLevel): boolean => {
+    if (level === "all") return true;
+    if (level === "junior") return qDifficulty === "junior";
+    if (level === "mid") return qDifficulty === "mid";
+    if (level === "senior") return qDifficulty === "senior" || qDifficulty === "lead";
+    return true;
+  }, []);
+
   // Filtered pool for screening
   const availableScreeningQuestions = useMemo(() => {
     return questions.filter((q) => {
       if (q.type !== "screening") return false;
+      if (!matchesLevel(q.difficulty, selectedLevel)) return false;
       if (selectedCategory !== "all" && q.category !== selectedCategory) return false;
       return true;
     });
-  }, [questions, selectedCategory]);
+  }, [questions, selectedLevel, selectedCategory, matchesLevel]);
 
   // Scenarios pool
   const scenarioQuestions = useMemo(() => {
     return questions.filter((q) => {
       if (q.type !== "system_design") return false;
+      if (!matchesLevel(q.difficulty, selectedLevel)) return false;
       if (selectedCategory !== "all" && q.category !== selectedCategory) return false;
       return true;
     });
-  }, [questions, selectedCategory]);
+  }, [questions, selectedLevel, selectedCategory, matchesLevel]);
 
   const maxScreening = availableScreeningQuestions.length;
+
+  // Unseen vs Seen counts for the active screening pool
+  const { unseenCount, seenCount } = useMemo(() => {
+    let unseen = 0;
+    let seen = 0;
+    for (const q of availableScreeningQuestions) {
+      if (seenSet.has(q.id)) {
+        seen++;
+      } else {
+        unseen++;
+      }
+    }
+    return { unseenCount: unseen, seenCount: seen };
+  }, [availableScreeningQuestions, seenSet]);
 
   // Handle count selection
   const handleSelectPreset = (count: number) => {
     setIsCustomCount(false);
-    const valid = Math.min(count, maxScreening);
+    const valid = Math.min(count, Math.max(1, maxScreening));
     setSelectedCount(valid);
     setCustomInputCount(valid.toString());
   };
@@ -108,25 +257,44 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
     }
   };
 
-  // Start screening drill
+  // Start screening drill with Never-Repeat prioritisation
   const handleStartQuiz = useCallback(() => {
     if (availableScreeningQuestions.length === 0) return;
 
-    const pool = [...availableScreeningQuestions];
-    if (shuffleQuestions) {
-      pool.sort(() => Math.random() - 0.5);
+    const countToTake = Math.max(1, Math.min(selectedCount, availableScreeningQuestions.length));
+    let chosen: InterviewQuestion[] = [];
+
+    if (prioritizeUnseen) {
+      // Divide pool into unseen and seen
+      const unseenPool = availableScreeningQuestions.filter((q) => !seenSet.has(q.id));
+      const seenPool = availableScreeningQuestions.filter((q) => seenSet.has(q.id));
+
+      if (shuffleQuestions) {
+        unseenPool.sort(() => Math.random() - 0.5);
+        seenPool.sort(() => Math.random() - 0.5);
+      }
+
+      if (unseenPool.length >= countToTake) {
+        chosen = unseenPool.slice(0, countToTake);
+      } else {
+        const remainingNeeded = countToTake - unseenPool.length;
+        chosen = [...unseenPool, ...seenPool.slice(0, remainingNeeded)];
+      }
+    } else {
+      const pool = [...availableScreeningQuestions];
+      if (shuffleQuestions) {
+        pool.sort(() => Math.random() - 0.5);
+      }
+      chosen = pool.slice(0, countToTake);
     }
 
-    const countToTake = Math.max(1, Math.min(selectedCount, pool.length));
-    const selected = pool.slice(0, countToTake);
-
-    setActiveQuestions(selected);
+    setActiveQuestions(chosen);
     setCurrentIndex(0);
     setUserAnswers({});
     setQuizStartTime(Date.now());
     setElapsedSeconds(0);
     setQuizState("active");
-  }, [availableScreeningQuestions, shuffleQuestions, selectedCount]);
+  }, [availableScreeningQuestions, prioritizeUnseen, seenSet, shuffleQuestions, selectedCount]);
 
   const currentQ = activeQuestions[currentIndex];
   const currentAnswer = currentQ ? userAnswers[currentQ.id] || [] : [];
@@ -138,6 +306,9 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
       ...prev,
       [currentQ.id]: [optId],
     }));
+
+    // Record question as answered (never-repeat memory)
+    seenStore.markSeen([currentQ.id]);
   };
 
   const liveStats = useMemo(() => {
@@ -177,6 +348,12 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
     }
   };
 
+  const handleResetHistory = () => {
+    if (confirm("Bạn có chắc chắn muốn xóa toàn bộ lịch sử câu hỏi đã luyện để bắt đầu lại từ đầu không?")) {
+      seenStore.clear();
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       {/* Header Banner */}
@@ -189,8 +366,84 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
           Luyện phỏng vấn Kỹ sư AI (AI Engineer Interview Prep)
         </h1>
         <p className="text-base text-muted-foreground max-w-3xl leading-relaxed">
-          Nắm vững các câu hỏi thực chiến về RAG, AI Agents, LLM Serving, Evaluation và System Design. Trang bị đầy đủ câu trả lời chuẩn xác, phân tích bẫy thi và mẹo ghi điểm với nhà tuyển dụng.
+          Nắm vững các câu hỏi thực chiến theo 3 cấp độ (Junior, Mid-level, Senior/Lead) với hơn 50+ câu hỏi chuyên sâu về RAG, AI Agents, LLM Serving, Quantization và System Design. Trang bị tính năng <strong>luyện không trùng lặp</strong> giúp bạn làm đi làm lại nhiều lần mà luôn được gặp câu hỏi mới.
         </p>
+      </div>
+
+      {/* 3 Difficulty Level Selector Cards */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Sliders className="h-3.5 w-3.5 text-primary" />
+            Chọn cấp độ phỏng vấn mục tiêu (3 Cấp bậc):
+          </span>
+          {seenCount > 0 && (
+            <button
+              type="button"
+              onClick={handleResetHistory}
+              className="text-xs text-muted-foreground hover:text-rose-600 flex items-center gap-1 cursor-pointer transition-colors"
+              title="Xóa danh sách câu đã làm để luyện lại từ đầu"
+            >
+              <Trash2 className="h-3 w-3" />
+              <span>Xóa lịch sử đã làm ({seenIds.length} câu)</span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {DIFFICULTY_LEVELS.map((lvl) => {
+            const Icon = lvl.icon;
+            const isSelected = selectedLevel === lvl.id;
+            const levelQuestionCount = questions.filter((q) => matchesLevel(q.difficulty, lvl.id)).length;
+
+            return (
+              <button
+                key={lvl.id}
+                type="button"
+                onClick={() => {
+                  setSelectedLevel(lvl.id);
+                  if (quizState === "active") {
+                    setQuizState("config");
+                  }
+                }}
+                className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                  isSelected
+                    ? "border-primary bg-primary/5 ring-2 ring-primary/40 shadow-sm"
+                    : "border-border/70 hover:border-border bg-card/60 hover:bg-muted/40"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className={`p-2 rounded-xl ${lvl.badgeClass}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <Badge variant="outline" className={`text-[11px] font-bold ${lvl.badgeClass}`}>
+                    {lvl.badgeLabel}
+                  </Badge>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">
+                    {lvl.label}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
+                    {lvl.description}
+                  </p>
+                </div>
+
+                <div className="pt-2 border-t border-border/50 flex items-center justify-between text-[11px]">
+                  <span className="text-muted-foreground font-medium">
+                    Ngân hàng: <strong className="text-foreground">{levelQuestionCount} câu</strong>
+                  </span>
+                  {isSelected && (
+                    <span className="text-primary font-bold flex items-center gap-0.5">
+                      <Check className="h-3 w-3" /> Đang chọn
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Mode Switcher Tabs */}
@@ -221,7 +474,7 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
           }`}
         >
           <Server className="h-4 w-4" />
-          Tình huống Thiết kế Hệ thống (System Design Scenarios)
+          Tình huống Thiết kế Hệ thống ({scenarioQuestions.length} kịch bản)
         </button>
       </div>
 
@@ -257,16 +510,49 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
           {quizState === "config" && (
             <Card className="border-border/70 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Sliders className="h-5 w-5 text-primary" />
-                  Cấu hình bộ câu hỏi phỏng vấn trắc nghiệm
-                </CardTitle>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Sliders className="h-5 w-5 text-primary" />
+                    Cấu hình bộ câu hỏi phỏng vấn trắc nghiệm
+                  </CardTitle>
+
+                  {/* Level indicator pill */}
+                  <Badge variant="outline" className="px-2.5 py-1 text-xs font-bold border-primary/40 bg-primary/5 text-primary">
+                    Đang chọn: {DIFFICULTY_LEVELS.find((l) => l.id === selectedLevel)?.label}
+                  </Badge>
+                </div>
                 <CardDescription>
                   Luyện tập các câu hỏi kiểm tra độ sâu kiến thức (Technical Screening). Mỗi câu hỏi đi kèm giải thích kỹ thuật chuyên sâu, mẹo phỏng vấn (Pro Interview Tip) và cảnh báo lỗi sai ứng viên hay mắc (Candidate Red Flags).
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="space-y-6">
+                {/* Never-Repeat & Seen Progress Status */}
+                <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <CheckCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-sm font-bold text-foreground">
+                        Tiến độ luyện tập theo bộ lọc:
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Bạn đã luyện <strong className="text-foreground">{seenCount}</strong> / {maxScreening} câu trong bộ lọc này ({maxScreening > 0 ? Math.round((seenCount / maxScreening) * 100) : 0}%). Còn <strong className="text-emerald-600 dark:text-emerald-400">{unseenCount} câu chưa làm</strong>.
+                    </div>
+                  </div>
+
+                  <label htmlFor="never-repeat-check" className="flex items-center gap-2.5 text-xs font-bold text-foreground cursor-pointer bg-background/80 px-3 py-2 rounded-lg border border-border/60 hover:bg-background">
+                    <input
+                      id="never-repeat-check"
+                      type="checkbox"
+                      checked={prioritizeUnseen}
+                      onChange={(e) => setPrioritizeUnseen(e.target.checked)}
+                      className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                    />
+                    <span>Ưu tiên câu chưa làm (Luyện không trùng)</span>
+                  </label>
+                </div>
+
                 {/* Count selector */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
@@ -279,7 +565,7 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
                     {PRESET_COUNTS.map((count) => {
                       const isSelected = !isCustomCount && selectedCount === count;
                       const isAvailable = count <= maxScreening;
@@ -335,7 +621,7 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
                 </div>
 
                 {/* Shuffle Option */}
-                <div className="pt-2 flex items-center justify-between border-t border-border/50">
+                <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-border/50">
                   <label htmlFor="shuffle-interview-check" className="text-xs font-medium text-muted-foreground cursor-pointer flex items-center gap-2">
                     <input
                       id="shuffle-interview-check"
@@ -349,7 +635,7 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
 
                   <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                     <Check className="h-3.5 w-3.5" />
-                    Sẽ làm {Math.min(selectedCount, maxScreening)} câu
+                    Sẽ làm {Math.min(selectedCount, maxScreening)} câu {prioritizeUnseen && unseenCount > 0 ? `(ưu tiên ${Math.min(unseenCount, selectedCount)} câu mới)` : ""}
                   </span>
                 </div>
 
@@ -408,7 +694,7 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
                       {currentQ.categoryName}
                     </Badge>
                     <Badge variant="secondary" className="text-xs uppercase font-bold">
-                      {currentQ.difficulty} Level
+                      {currentQ.difficulty === "junior" ? "Level 1: Junior" : currentQ.difficulty === "mid" ? "Level 2: Mid-Level" : "Level 3: Senior"}
                     </Badge>
                   </div>
                   <span className="text-xs text-muted-foreground font-mono">
@@ -583,7 +869,7 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
                   Hoàn thành vòng phỏng vấn thử!
                 </CardTitle>
                 <CardDescription className="text-sm sm:text-base mt-1">
-                  Bạn vừa hoàn thành {activeQuestions.length} câu hỏi phỏng vấn kỹ thuật AI Engineer.
+                  Bạn vừa hoàn thành {activeQuestions.length} câu hỏi phỏng vấn kỹ thuật AI Engineer ({DIFFICULTY_LEVELS.find((l) => l.id === selectedLevel)?.label}).
                 </CardDescription>
               </div>
 
@@ -617,7 +903,7 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
                 </Button>
                 <Button variant="outline" onClick={() => setQuizState("config")} className="gap-2 font-semibold">
                   <Sliders className="h-4 w-4" />
-                  Đổi thiết lập số câu & chủ đề
+                  Đổi thiết lập cấp độ & chủ đề
                 </Button>
               </div>
             </Card>
@@ -650,7 +936,7 @@ export function InterviewPrepView({ questions }: InterviewPrepViewProps) {
                         {scenario.categoryName}
                       </Badge>
                       <Badge variant="secondary" className="text-xs uppercase font-bold">
-                        {scenario.difficulty} Level
+                        {scenario.difficulty === "junior" ? "Level 1: Junior" : scenario.difficulty === "mid" ? "Level 2: Mid-Level" : "Level 3: Senior / Lead"}
                       </Badge>
                     </div>
                     <CardTitle className="text-lg sm:text-xl font-bold">
