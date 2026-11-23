@@ -98,7 +98,7 @@ export const CERTIFICATIONS: Certification[] = [
     description: "Advanced certification evaluating enterprise-scale deployment, high-throughput batching, fine-grained safety rails, audit logging, model drift monitoring, and multi-region resilience.",
     shortDescription: "Enterprise governance, resilience, high-throughput LLM infrastructure, and compliance.",
     lastVerifiedDate: "2026-11-23",
-    isPracticeReady: false,
+    isPracticeReady: true,
     domains: [
       { id: "enterprise-gov", name: "Domain 1: Enterprise AI Governance, Guardrails & Auditing", weightPercent: 30 },
       { id: "high-throughput", name: "Domain 2: High-Volume Batching, Rate Limiting & Optimization", weightPercent: 25 },
@@ -152,7 +152,7 @@ export const CERTIFICATIONS: Certification[] = [
     description: "Focuses on scaling ML models, data pipelines, SageMaker feature store, model registry, inference endpoints, and automated CI/CD for ML (MLOps).",
     shortDescription: "Production ML engineering, SageMaker MLOps, and inference optimization on AWS.",
     lastVerifiedDate: "2026-11-23",
-    isPracticeReady: false,
+    isPracticeReady: true,
     domains: [
       { id: "data-prep", name: "Domain 1: Data Preparation for Machine Learning", weightPercent: 28 },
       { id: "ml-dev", name: "Domain 2: ML Model Development & SageMaker", weightPercent: 26 },
@@ -206,7 +206,7 @@ export const CERTIFICATIONS: Certification[] = [
     description: "Validates building generative AI apps, Semantic Kernel, Azure AI Foundry, autonomous agents, and vector search with Azure AI Search.",
     shortDescription: "Semantic Kernel, Azure AI Foundry, Autonomous Agents, and Azure AI Search.",
     lastVerifiedDate: "2026-11-23",
-    isPracticeReady: false,
+    isPracticeReady: true,
     domains: [
       { id: "azure-ai-foundry", name: "Domain 1: Azure AI Foundry & Model Catalog", weightPercent: 25 },
       { id: "agents-semantic-kernel", name: "Domain 2: Semantic Kernel & AI Agents", weightPercent: 30 },
@@ -290,7 +290,7 @@ export const CERTIFICATIONS: Certification[] = [
     description: "Evaluates end-to-end LLM application development on Databricks Lakehouse: Vector Search, Mosaic AI Agent Framework, MLflow tracking, and model serving.",
     shortDescription: "Databricks Vector Search, Mosaic AI, MLflow 2.x, and Lakehouse RAG.",
     lastVerifiedDate: "2026-11-23",
-    isPracticeReady: false,
+    isPracticeReady: true,
     domains: [
       { id: "lakehouse-data", name: "Domain 1: Data Preparation & Delta Lake for GenAI", weightPercent: 25 },
       { id: "vector-search", name: "Domain 2: Databricks Vector Search & Embeddings", weightPercent: 25 },
