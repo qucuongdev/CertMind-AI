@@ -5,7 +5,7 @@ import { CERTIFICATIONS } from "@/content/certifications";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ArrowRight, HelpCircle, Award } from "lucide-react";
+import { Sparkles, ArrowRight, HelpCircle, Award, Sliders } from "lucide-react";
 
 export const instant = false;
 
@@ -31,8 +31,31 @@ async function PracticeSelectionContent({
           Practice Engine
         </h1>
         <p className="mt-2 text-base text-muted-foreground">
-          Choose a certification below to start practicing. Practice mode gives you instant explanations, distractor breakdowns, and question flagging.
+          Choose a certification below to start practicing or create a custom drill with instant answer reveal and distractor breakdown.
         </p>
+      </div>
+
+      {/* Quick Custom Drill Feature Card */}
+      <div className="p-6 rounded-2xl border border-primary/30 bg-primary/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-xs">
+        <div className="space-y-2 max-w-2xl">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Chế độ Luyện tập linh hoạt</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">
+            Luyện tập câu hỏi tùy chọn (5, 10, 15, 20... hoặc nhập số)
+          </h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Chọn số lượng câu hỏi bạn muốn luyện hoặc tự nhập số lượng bất kỳ. Hiển thị đúng/sai tức thì ngay khi chọn và phân tích cặn kẽ vì sao các phương án khác bị loại bỏ.
+          </p>
+        </div>
+        <Link href="/practice/drill" className="shrink-0 w-full md:w-auto">
+          <Button size="lg" className="w-full md:w-auto gap-2 font-bold shadow-xs">
+            <Sliders className="h-4 w-4" />
+            Vào Luyện tập tùy chọn
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
